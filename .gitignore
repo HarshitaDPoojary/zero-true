@@ -170,3 +170,7 @@ cython_debug/
 docs/html/
 **/zt_db.db
 **/zt_db.db.wal
+
+**/zt_test
+**/zt_new
+**/zt_1
