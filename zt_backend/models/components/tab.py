@@ -40,14 +40,3 @@ class Tab(ZTComponent):
     @field_validator('color')
     def validate_color(cls, color):
         return validate_color(color)
-
-    @validator('value', always=True) #TODO: debug and replace with field validator
-    def get_value_from_global_state(cls, value, values):
-        id = values['id'] # Get the id if it exists in the field values
-        execution_state = UserContext.get_state()
-        try:
-            if execution_state and id and id in execution_state.component_values:  # Check if id exists in global_state
-                return execution_state.component_values[id]  # Return the value associated with id in global_state
-        except Exception as e:
-            e
-        return value 
