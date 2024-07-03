@@ -1,5 +1,5 @@
 import subprocess
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, File, UploadFile, WebSocket, WebSocketDisconnect, Query
 from zt_backend.models import notebook
 from zt_backend.models.api import request
 from zt_backend.runner.execute_code import execute_request
@@ -12,6 +12,7 @@ from zt_backend.models.managers.k_thread import KThread
 from zt_backend.models.state.user_state import UserState
 from zt_backend.models.state.app_state import AppState
 from fastapi.responses import HTMLResponse
+from pathlib import Path
 import logging
 import uuid
 import os
@@ -263,3 +264,43 @@ def share_notebook(shareRequest: request.ShareRequest):
 @router.on_event('shutdown')
 def shutdown():
     app_state.shutdown()
+
+def get_file_type(name):
+    extension = name.split('.')[-1]
+    if extension in ['html', 'js', 'json', 'md', 'pdf', 'png', 'txt', 'xls']:
+        return extension
+    return 'file'
+
+def list_dir(path, base_path):
+    items = []
+    for item in path.iterdir():
+        relative_path = Path(base_path) / item.name
+        if item.is_dir():
+            if item.name in ['.git', '__pycache__', 'node_modules']:
+                items.append({
+                    'title': item.name,
+                    'file': 'folder',
+                    'relative_path': str(relative_path).replace('\\', '/')
+                })
+            else:
+                items.append({
+                    'title': item.name,
+                    'file': 'folder',
+                    'id': str(item.resolve()),
+                    'relative_path': str(relative_path).replace('\\', '/')
+                })
+        else:
+            file_type = get_file_type(item.name)
+            items.append({
+                'title': item.name,
+                'file': file_type,
+                'id': str(item.resolve()),
+                'relative_path': str(relative_path).replace('\\', '/')
+            })
+    return items
+
+@router.get("/api/get_files")
+def list_files(src='.'):
+    dir_path = Path(src).resolve()
+    files = list_dir(dir_path, src)
+    return {"files": files}

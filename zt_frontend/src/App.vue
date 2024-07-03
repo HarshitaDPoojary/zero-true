@@ -105,6 +105,24 @@
         </v-col>
       </template>
     </v-app-bar>
+    <!-- <SidebarComponent
+    :drawer="drawer"
+    :items="items"
+    :tree="tree"
+    :fileIcon="fileIcon"
+    :isMobile="isMobile"
+    :isAppRoute="isAppRoute"
+    @update:drawer="updateDrawer"
+  /> -->
+    <SidebarComponent
+    :drawer="drawer"
+    :items="items"
+    :fileIcon="fileIcon"
+    :isMobile="isMobile"
+    :isAppRoute="isAppRoute"
+    @update:drawer="updateDrawer"
+  />
+
     <v-main :scrollable="false">
       <v-container v-if="errorMessage">
         <v-alert type="error">
@@ -244,7 +262,9 @@ import type { VTextField } from "vuetify/lib/components/index.mjs";
 import { ztAliases } from '@/iconsets/ztIcon'
 import { Timer } from "@/timer";
 import { globalState } from "@/global_vars";
+import SidebarComponent from '@/components/FileExplorer.vue';
 import { DependencyRequest } from "./types/dependency_request";
+
 
 export default {
   components: {
@@ -255,12 +275,13 @@ export default {
     PackageComponent,
     CodeCellManager,
     CopilotComponent,
-    ShareComponent
+    ShareComponent,
+    SidebarComponent
   },
 
   data() {
     return {
-      editingProjectName: false,
+      editingProjectName: false, 
       errorMessage: '' as string,
       notebook: {} as Notebook,
       notebookName: '',
@@ -281,11 +302,16 @@ export default {
       isCodeRunning: false,
       requestQueue: [] as any[],
       componentChangeQueue: [] as  any[],
+      drawer: true,
+      files: [] as any[],
+      // tree: [],
+      items: [] as any[],
+      openFolders: [],
       concatenatedCodeCache: {
-        lastCellId: '' as string,
-        code: '' as string,
-        followingCode: '' as string,
-        length: 0 as number,
+      lastCellId: '' as string,
+      code: '' as string,
+      followingCode: '' as string,
+      length: 0 as number,
       },
       dependencyOutput: {output: "", isLoading: false} as DependencyOutput,
       ztAliases
@@ -308,8 +334,11 @@ export default {
     await this.initializeRunSocket()
     await this.initializeStopSocket()
     if (this.$devMode){
-      await this.initializeSaveSocket()
+      await this.initializeSaveSocket() 
       await this.initializeDependencySocket()
+      this.files = await (await axios.get(import.meta.env.VITE_BACKEND_URL + "api/get_files")).data.files as any[]
+      this.items = this.files
+      console.log(this.items[0])
     }
     this.isCodeRunning = true;
     this.startTimer();
@@ -343,6 +372,38 @@ export default {
         nextTick(() => {
           (this.$refs.projectNameField as VTextField).focus();
         })
+      }
+    },
+    updateDrawer(value: boolean) {
+      this.drawer = value;
+    },
+  handleFileChange(componentId: string, event: Event) {
+  const file = (event.target as HTMLInputElement).files;
+  if (file && file.length > 0) {
+    const formData = new FormData();
+    formData.append("file", file[0]);
+    axios.post(`${import.meta.env.VITE_BACKEND_URL}api/upload_file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    .then(response => console.log("File processed", response.data))
+    .catch(error => console.error("Error processing file:", error.response)); // Directly pass the file to `runCode`
+  } else {
+    console.error("No file selected");
+  }
+},
+fileIcon(extension: string) {
+
+      switch (extension) {
+        case 'html': return 'mdi:mdi-language-html5';
+        case 'js': return 'mdi:mdi-nodejs';
+        case 'json': return 'mdi:mdi-code-json';
+        case 'md': return 'mdi:mdi-language-markdown';
+        case 'pdf': return 'mdi:mdi-file-pdf-box';
+        case 'png': return 'mdi:mdi-file-image';
+        case 'txt': return 'mdi:mdi-file-document-outline';
+        case 'xls': return 'mdi:mdi-file-excel';
+        case 'folder': return 'mdi:mdi-folder';
+        default: return 'mdi:mdi-file';
       }
     },
     async saveProjectName() {
@@ -420,7 +481,7 @@ export default {
         }
         return;
       }
-      
+      console.log(request)
       this.sendRunCodeRequest(request)
     },
 
